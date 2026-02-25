@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Virtual Aether</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+        body { font-family: 'Nunito', sans-serif; background-color: #0f172a; color: white; overflow: hidden; touch-action: manipulation; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes float-space {
+            0%, 100% { transform: translateY(0) translateX(0) rotate(0deg); }
+            25% { transform: translateY(-15px) translateX(10px) rotate(5deg); }
+            50% { transform: translateY(-25px) translateX(-5px) rotate(-5deg); }
+            75% { transform: translateY(-10px) translateX(-15px) rotate(2deg); }
+        }
+        
+        @keyframes pop-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop-in { animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes float-heart {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+        }
+        .heart-anim { animation: float-heart 1s ease-out forwards; position: absolute; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="fixed inset-0 w-full flex justify-center bg-slate-900 overflow-hidden">
+
+<div id="app-container" class="relative w-full max-w-md h-full bg-slate-900 shadow-2xl overflow-hidden flex flex-col">
+    
+    <!-- Drifting Pets Background Layer -->
+    <div id="bg-drifters" class="absolute inset-0 pointer-events-none z-0 opacity-60 overflow-hidden"></div>
+
+    <!-- Login Screen -->
+    <div id="screen-login" class="absolute inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <i class="fa-solid fa-mobile-screen-button text-6xl text-indigo-500 mb-6 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]"></i>
+        <h1 class="text-4xl font-black mb-2 tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">Virtual Aether</h1>
+        <p class="text-slate-400 mb-8">Put your phone down. Collect cosmic pets.</p>
+        
+        <div class="w-full max-w-xs space-y-4">
+            <input type="text" id="login-input" placeholder="Enter your name..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-4 py-3 text-white text-center font-bold focus:outline-none focus:border-indigo-500 transition-colors" maxlength="15">
+            <button onclick="handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(79,70,229,0.4)] transition-all active:scale-95 text-lg">
+                Enter the Aether
+            </button>
+            <p class="text-slate-500 text-xs mt-4 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> 
+                Progress saves instantly to your device!
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Game UI -->
+    <div id="screen-main" class="hidden flex-col h-full w-full z-10 relative">
+        <!-- Header -->
+        <header class="bg-slate-800/80 backdrop-blur-md p-4 flex justify-between items-center border-b border-slate-700/50 shadow-md">
+            <div class="font-black text-xl tracking-wider text-indigo-400">AETHER</div>
+            <div class="bg-slate-900 px-4 py-1.5 rounded-full flex items-center gap-2 border border-slate-700">
+                <i class="fa-solid fa-coins text-yellow-400"></i>
+                <span id="header-coins" class="font-bold text-white font-mono">0</span>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area -->
+        <main id="main-content" class="flex-1 overflow-y-auto p-4 scrollbar-hide relative z-10"></main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bg-slate-800/90 backdrop-blur-md border-t border-slate-700/50 p-2 pb-safe flex justify-around items-center" id="nav-buttons">
+            <!-- Buttons rendered via JS -->
+        </nav>
+    </div>
+
+    <!-- Pet Details Modal -->
+    <div id="modal-pet-details" class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div id="pet-details-box" class="pop-in"></div>
+    </div>
+
+    <!-- Notifications Modal -->
+    <div id="modal-notification" class="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div id="notif-box" class="bg-slate-800 border-2 border-indigo-500 rounded-2xl p-6 max-w-xs w-full text-center shadow-[0_0_30px_rgba(99,102,241,0.3)] transform scale-95 transition-transform">
+            <h3 id="notif-title" class="text-xl font-bold mb-2 text-indigo-300"></h3>
+            <p id="notif-message" class="text-slate-300 mb-6 whitespace-pre-line"></p>
+            <button onclick="closeNotification()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-8 rounded-xl w-full">Awesome!</button>
+        </div>
+    </div>
+
+    <!-- Admin Auth Modal -->
+    <div id="modal-admin-auth" class="absolute inset-0 z-[70] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-red-500 rounded-2xl p-6 max-w-xs w-full text-center shadow-[0_0_30px_rgba(239,68,68,0.3)]">
+            <i class="fa-solid fa-shield-halved text-4xl text-red-500 mb-4"></i>
+            <h3 class="text-xl font-bold mb-4 text-red-400">Developer Access</h3>
+            <input type="password" id="admin-pwd-input" placeholder="Authorization Code" class="w-full bg-slate-800 border-2 border-slate-700 rounded-xl px-4 py-2 text-white text-center font-mono mb-4 focus:outline-none focus:border-red-500">
+            <div class="flex gap-2">
+                <button onclick="closeAdminAuth()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-xl">Cancel</button>
+                <button onclick="verifyAdmin()" class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded-xl">Verify</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- APPLICATION LOGIC -->
+<script>
+    // --- DATABASE ---
+    const PET_DATABASE = [
+        { id: 1, name: "Aether Slime", rarity: "Common", emoji: "💧", cost: 0 },
+        { id: 2, name: "Cloud Cat", rarity: "Common", emoji: "☁️", cost: 50 },
+        { id: 3, name: "Breeze Bunny", rarity: "Uncommon", emoji: "🐇", cost: 100 },
+        { id: 4, name: "Star Fox", rarity: "Rare", emoji: "🦊", cost: 250 },
+        { id: 5, name: "Nebula Owl", rarity: "Rare", emoji: "🦉", cost: 500 },
+        { id: 6, name: "Solar Dragon", rarity: "Epic", emoji: "🐉", cost: 1000 },
+        { id: 7, name: "Galaxy Unicorn", rarity: "Legendary", emoji: "🦄", cost: 2500 },
+        { id: 8, name: "Void Phoenix", rarity: "Mythic", emoji: "🦅", cost: 5000 },
+        { id: 9, name: "Terra Turtle", rarity: "Common", emoji: "🐢", cost: 0 },
+        { id: 10, name: "Aqua Axolotl", rarity: "Common", emoji: "🦎", cost: 0 },
+        { id: 11, name: "Crystal Crab", rarity: "Common", emoji: "🦀", cost: 0 },
+        { id: 12, name: "Mud Mole", rarity: "Common", emoji: "🦡", cost: 0 },
+        { id: 13, name: "Flora Fawn", rarity: "Uncommon", emoji: "🦌", cost: 0 },
+        { id: 14, name: "Frost Penguin", rarity: "Uncommon", emoji: "🐧", cost: 0 },
+        { id: 15, name: "Spark Bug", rarity: "Uncommon", emoji: "🐛", cost: 0 },
+        { id: 16, name: "Volt Pup", rarity: "Rare", emoji: "🐕", cost: 0 },
+        { id: 17, name: "Shadow Bat", rarity: "Rare", emoji: "🦇", cost: 0 },
+        { id: 18, name: "Magma Monkey", rarity: "Epic", emoji: "🐒", cost: 0 },
+        { id: 19, name: "Cosmic Whale", rarity: "Legendary", emoji: "🐳", cost: 0 },
+        { id: 20, name: "Chaos Serpent", rarity: "Mythic", emoji: "🐍", cost: 0 },
+        { id: 999, name: "Blue Diamond", rarity: "Admin", emoji: "💠", cost: 0, isAdmin: true }
+    ];
+
+    const SHOP_ITEMS = {
+        food: [
+            { id: 'f1', name: "Aether Berry", emoji: "🫐", cost: 50, sizeBoost: 0.1, appetite: 10, desc: "A light snack." },
+            { id: 'f2', name: "Star Seed", emoji: "✨", cost: 100, sizeBoost: 0.25, appetite: 20, desc: "Crunchy magic." },
+            { id: 'f3', name: "Cosmic Cake", emoji: "🎂", cost: 150, sizeBoost: 0.4, appetite: 35, desc: "Very filling!" },
+            { id: 'f4', name: "Mana Potion", emoji: "🧪", cost: 200, sizeBoost: 0.6, appetite: 40, desc: "Liquid energy." },
+            { id: 'f5', name: "Void Melon", emoji: "🍉", cost: 300, sizeBoost: 1.0, appetite: 70, desc: "Massive gains." },
+            { id: 'f6', name: "Galactic Pizza", emoji: "🍕", cost: 500, sizeBoost: 1.5, appetite: 90, desc: "Stuffed crust!" },
+            { id: 'f7', name: "Picnic Basket", emoji: "🧺", cost: 1200, sizeBoost: 1.4, appetite: 100, desc: "Ignores rarity penalty!", ignoresRarity: true },
+        ],
+        accessories: [
+            { id: 'a1', name: "Cool Shades", emoji: "🕶️", cost: 200, sizeBoost: 0.2, desc: "+0.2x Size Boost" },
+            { id: 'a2', name: "Dapper Bow", emoji: "🎀", cost: 250, sizeBoost: 0.3, desc: "+0.3x Size Boost" },
+            { id: 'a3', name: "Magic Sparkles", emoji: "✨", cost: 400, sizeBoost: 0.4, desc: "+0.4x Size Boost" },
+            { id: 'a4', name: "Aura Crown", emoji: "👑", cost: 500, sizeBoost: 0.5, desc: "+0.5x Size Boost" },
+            { id: 'a5', name: "Wizard Hat", emoji: "🧙", cost: 600, sizeBoost: 0.6, desc: "+0.6x Size Boost" },
+            { id: 'a6', name: "Angel Halo", emoji: "😇", cost: 800, sizeBoost: 0.8, desc: "+0.8x Size Boost" },
+            { id: 'a7', name: "Demon Horns", emoji: "😈", cost: 800, sizeBoost: 0.8, desc: "+0.8x Size Boost" },
+            { id: 'a_admin', name: "Ban Hammer", emoji: "🔨", cost: 0, sizeBoost: 20.0, desc: "ADMIN ONLY: +20x Size Boost", isAdmin: true }
+        ],
+        special: [
+            { id: 'g1', name: "Gift Box", emoji: "🎁", cost: 500, desc: "Required to wrap and send a gift to a friend!" },
+            { id: 's1', name: "Mutator", emoji: "🧬", cost: 1000, desc: "Random mutation! (Gold, Hungry, Cool, or Admin)" }
+        ]
+    };
+
+    const RARITY_GROWTH_MULT = { Common: 1.0, Uncommon: 0.8, Rare: 0.6, Epic: 0.4, Legendary: 0.2, Mythic: 0.1, Admin: 1.0 };
+
+    // --- STATE ---
+    let state = {
+        playerName: '',
+        isRegistered: false,
+        isAdminVerified: false,
+        currentTab: 'home',
+        userCoins: 0,
+        unlockedPets: [1],
+        summonCost: 100,
+        totalOfflineSeconds: 0,
+        selectedPetId: null,
+        inventory: {},
+        petData: { 1: { foodSize: 1.0, appetite: 0, accessory: null, accessorySize: 0, mutation: null } },
+        history: [], 
+        usedGiftCodes: [], // Tracks claimed gifts
+        lastHiddenTime: null
+    };
+
+    [...SHOP_ITEMS.food, ...SHOP_ITEMS.accessories, ...SHOP_ITEMS.special].forEach(item => state.inventory[item.id] = 0);
+
+    // --- LOCAL STORAGE SYSTEM ---
+    const SAVE_KEY = "virtual_aether_save_v2"; 
+
+    function savePrivateData() {
+        try {
+            const dataToSave = {
+                playerName: state.playerName,
+                isRegistered: state.isRegistered,
+                userCoins: state.userCoins,
+                unlockedPets: state.unlockedPets,
+                summonCost: state.summonCost,
+                totalOfflineSeconds: state.totalOfflineSeconds,
+                inventory: state.inventory,
+                petData: state.petData,
+                history: state.history,
+                usedGiftCodes: state.usedGiftCodes
+            };
+            localStorage.setItem(SAVE_KEY, JSON.stringify(dataToSave));
+        } catch (e) {
+            console.error("Failed to save to device memory", e);
+        }
+    }
+
+    function loadPrivateData() {
+        try {
+            let savedData = localStorage.getItem(SAVE_KEY);
+            if (!savedData) savedData = localStorage.getItem("virtual_aether_save_v1"); // Migration check
+            
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                if (data.isRegistered) {
+                    state.playerName = data.playerName;
+                    state.isRegistered = data.isRegistered;
+                    state.userCoins = data.userCoins || 0;
+                    state.unlockedPets = data.unlockedPets || [1];
+                    state.summonCost = data.summonCost || 100;
+                    state.totalOfflineSeconds = data.totalOfflineSeconds || 0;
+                    
+                    // Merge inventory to safely add new items (like g1) to existing saves
+                    state.inventory = { ...state.inventory, ...(data.inventory || {}) };
+                    
+                    state.petData = data.petData || state.petData;
+                    state.history = data.history || [];
+                    state.usedGiftCodes = data.usedGiftCodes || [];
+
+                    document.getElementById('screen-login').classList.add('hidden');
+                    document.getElementById('screen-main').classList.remove('hidden');
+                    document.getElementById('screen-main').classList.add('flex');
+                    updateUI();
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load from device memory", e);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadPrivateData();
+    });
+
+    // --- UTILS ---
+    const formatTime = (totalSeconds) => {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+        if (minutes > 0) return `${minutes}m ${seconds}s`;
+        return `${seconds}s`;
+    };
+
+    const getPetElementAndTrait = (petId) => {
+        if (petId === 999) return { element: "Developer", trait: "Regal" };
+        return {
+            element: ["Earth", "Water", "Fire", "Air", "Cosmic", "Void"][petId % 6],
+            trait: ["Loyal", "Playful", "Sleepy", "Energetic", "Mysterious", "Gluttonous"][petId % 6]
+        };
+    };
+
+    const getMutationStyle = (mutation) => {
+        switch(mutation) {
+            case 'Gold': return 'text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] border-yellow-500 bg-yellow-900/20';
+            case 'Hungry': return 'text-orange-400 drop-shadow-[0_0_15px_rgba(251,146,60,0.8)] border-orange-500 bg-orange-900/20';
+            case 'Cool': return 'text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)] border-cyan-500 bg-cyan-900/20';
+            case 'Admin': return 'text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,1)] border-red-500 bg-red-900/20 animate-pulse';
+            default: return 'border-indigo-500';
+        }
+    };
+
+    const getMutationText = (mutation) => {
+        switch(mutation) {
+            case 'Gold': return 'text-yellow-400';
+            case 'Hungry': return 'text-orange-400';
+            case 'Cool': return 'text-cyan-400';
+            case 'Admin': return 'text-red-500';
+            default: return 'text-white';
+        }
+    };
+
+    // --- CORE LOGIC ---
+    window.handleLogin = () => {
+        const input = document.getElementById('login-input').value.trim();
+        if (input.toLowerCase() === 'admin') {
+            document.getElementById('modal-admin-auth').classList.remove('hidden');
+        } else if (input !== '') {
+            state.playerName = input;
+            state.isRegistered = true;
+            document.getElementById('screen-login').classList.add('hidden');
+            document.getElementById('screen-main').classList.remove('hidden');
+            document.getElementById('screen-main').classList.add('flex');
+            savePrivateData();
+            updateUI();
+        }
+    }
+
+    window.verifyAdmin = () => {
+        const pwd = document.getElementById('admin-pwd-input').value;
+        if (pwd === 'Mr. Whyphee') {
+            state.playerName = 'Admin';
+            state.isAdminVerified = true;
+            state.isRegistered = true;
+            window.closeAdminAuth();
+            document.getElementById('screen-login').classList.add('hidden');
+            document.getElementById('screen-main').classList.remove('hidden');
+            document.getElementById('screen-main').classList.add('flex');
+            savePrivateData();
+            updateUI();
+        } else {
+            window.showNotification("Access Denied", "Incorrect authorization code.");
+            document.getElementById('admin-pwd-input').value = '';
+        }
+    }
+
+    window.closeAdminAuth = () => {
+        document.getElementById('modal-admin-auth').classList.add('hidden');
+        document.getElementById('admin-pwd-input').value = '';
+    }
+
+    window.showNotification = (title, message) => {
+        document.getElementById('notif-title').innerText = title;
+        document.getElementById('notif-message').innerText = message;
+        const modal = document.getElementById('modal-notification');
+        modal.classList.remove('hidden');
+        document.getElementById('notif-box').classList.add('scale-100');
+    }
+
+    window.closeNotification = () => {
+        document.getElementById('modal-notification').classList.add('hidden');
+        document.getElementById('notif-box').classList.remove('scale-100');
+    }
+
+    document.getElementById('login-input').addEventListener('keypress', (e) => e.key === 'Enter' && window.handleLogin());
+    document.getElementById('admin-pwd-input').addEventListener('keypress', (e) => e.key === 'Enter' && window.verifyAdmin());
+
+    // Offline Tracker
+    document.addEventListener('visibilitychange', () => {
+        if (!state.isRegistered) return;
+
+        if (document.visibilityState === 'hidden') {
+            state.lastHiddenTime = Date.now();
+        } else if (document.visibilityState === 'visible') {
+            if (state.lastHiddenTime) {
+                const timeAway = Math.floor((Date.now() - state.lastHiddenTime) / 1000);
+                
+                if (timeAway > 0) {
+                    state.totalOfflineSeconds += timeAway;
+                    
+                    state.history.push({
+                        date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                        time: timeAway
+                    });
+                    state.history.sort((a, b) => b.time - a.time);
+                    state.history = state.history.slice(0, 15);
+
+                    const rewardIntervals = Math.floor(timeAway / 15);
+                    const dropRolls = Math.floor(timeAway / 60);
+                    let coinsEarned = rewardIntervals * 25;
+                    let bonusMessage = "";
+
+                    if (rewardIntervals > 0) {
+                        Object.keys(state.petData).forEach(id => {
+                            state.petData[id].appetite = Math.max(0, state.petData[id].appetite - (rewardIntervals * 5));
+                        });
+
+                        const earnedLoot = {};
+                        let petFoundThisSession = false;
+
+                        for (let i = 0; i < dropRolls; i++) {
+                            const roll = Math.random();
+                            
+                            if (roll < 0.03 && !petFoundThisSession) {
+                                petFoundThisSession = true;
+                                const randRarityRoll = Math.random() * 111;
+                                let r = 'Common';
+                                if (randRarityRoll < 50) r = 'Common';
+                                else if (randRarityRoll < 75) r = 'Uncommon';
+                                else if (randRarityRoll < 93) r = 'Rare';
+                                else if (randRarityRoll < 103) r = 'Epic';
+                                else if (randRarityRoll < 108) r = 'Legendary';
+                                else r = 'Mythic';
+
+                                const avail = PET_DATABASE.filter(p => p.rarity === r && !p.isAdmin);
+                                if (avail.length > 0) {
+                                    const bonusPet = avail[Math.floor(Math.random() * avail.length)];
+
+                                    if (state.unlockedPets.includes(bonusPet.id)) {
+                                        coinsEarned += 100;
+                                        bonusMessage += `\n🎁 A wild ${bonusPet.name} appeared but you had it! (+100 coins)`;
+                                    } else {
+                                        state.unlockedPets.push(bonusPet.id);
+                                        state.petData[bonusPet.id] = { foodSize: 1.0, appetite: 0, accessory: null, accessorySize: 0, mutation: null };
+                                        bonusMessage += `\n✨ A wild ${bonusPet.name} (${bonusPet.emoji}) joined you!`;
+                                    }
+                                }
+                            } 
+                            else if (roll < 0.18) {
+                                const normalFoods = SHOP_ITEMS.food.filter(f => !f.isAdmin);
+                                const f = normalFoods[Math.floor(Math.random() * normalFoods.length)];
+                                earnedLoot[f.id] = (earnedLoot[f.id] || 0) + 1;
+                            } 
+                            else if (roll < 0.23) {
+                                const normalAccessories = SHOP_ITEMS.accessories.filter(a => !a.isAdmin);
+                                const a = normalAccessories[Math.floor(Math.random() * normalAccessories.length)];
+                                earnedLoot[a.id] = (earnedLoot[a.id] || 0) + 1;
+                            }
+                        }
+
+                        if (Object.keys(earnedLoot).length > 0) {
+                            for (const [id, count] of Object.entries(earnedLoot)) {
+                                state.inventory[id] += count;
+                            }
+                            bonusMessage += `\n\n🎒 Pets foraged these items:`;
+                            for (const [id, count] of Object.entries(earnedLoot)) {
+                                const item = [...SHOP_ITEMS.food, ...SHOP_ITEMS.accessories].find(i => i.id === id);
+                                if(item) bonusMessage += `\n- ${count}x ${item.emoji} ${item.name}`;
+                            }
+                        }
+                    }
+                    
+                    state.userCoins += coinsEarned;
+                    savePrivateData();
+                    window.showNotification("Welcome Back! 🌟", `You spent ${formatTime(timeAway)} offline.\nEarned: ${coinsEarned} Aether Coins!\nPets digested ${rewardIntervals * 5} fullness.${bonusMessage}`);
+                    updateUI();
+                }
+                state.lastHiddenTime = null;
+            }
+        }
+    });
+
+    // --- ACTIONS ---
+    window.setTab = (tab) => { state.currentTab = tab; updateUI(); }
+    
+    window.summonPet = () => {
+        if (state.userCoins < state.summonCost) {
+            window.showNotification("Oops!", "Not enough Aether Coins! Put your phone down to earn more.");
+            return;
+        }
+        state.userCoins -= state.summonCost;
+        
+        const rand = Math.random() * 111;
+        let rolledRarity = 'Common';
+        if (rand < 50) rolledRarity = 'Common';
+        else if (rand < 75) rolledRarity = 'Uncommon';
+        else if (rand < 93) rolledRarity = 'Rare';
+        else if (rand < 103) rolledRarity = 'Epic';
+        else if (rand < 108) rolledRarity = 'Legendary';
+        else rolledRarity = 'Mythic';
+
+        const availablePets = PET_DATABASE.filter(p => p.rarity === rolledRarity && !p.isAdmin);
+        const newPet = availablePets[Math.floor(Math.random() * availablePets.length)];
+
+        if (state.unlockedPets.includes(newPet.id)) {
+            const refund = Math.floor(state.summonCost * 0.75);
+            state.userCoins += refund;
+            window.showNotification("Duplicate Found! ♻️", `You rolled a ${newPet.rarity} ${newPet.name} ${newPet.emoji}, but you already have it! Refunded ${refund} coins.`);
+        } else {
+            state.unlockedPets.push(newPet.id);
+            state.petData[newPet.id] = { foodSize: 1.0, appetite: 0, accessory: null, accessorySize: 0, mutation: null };
+            window.showNotification("✨ Summon Successful!", `You discovered a ${newPet.rarity} ${newPet.name} ${newPet.emoji}!`);
+        }
+        state.summonCost += 50;
+        savePrivateData();
+        updateUI();
+    };
+
+    window.buyItem = (itemId) => {
+        const item = [...SHOP_ITEMS.food, ...SHOP_ITEMS.accessories, ...SHOP_ITEMS.special].find(i => i.id === itemId);
+        if (state.userCoins >= item.cost) {
+            state.userCoins -= item.cost;
+            state.inventory[item.id] += 1;
+            window.showNotification("Purchase Complete! 🛍️", `You bought 1x ${item.name} ${item.emoji}!`);
+            savePrivateData();
+            updateUI();
+        } else {
+            window.showNotification("Oops!", "Not enough Aether Coins!");
+        }
+    };
+
+    window.openPetDetails = (id) => {
+        state.selectedPetId = id;
+        renderPetDetails();
+        document.getElementById('modal-pet-details').classList.remove('hidden');
+    };
+
+    window.closePetDetails = () => {
+        state.selectedPetId = null;
+        document.getElementById('modal-pet-details').classList.add('hidden');
+        updateUI(); 
+    };
+
+    window.feedPet = (foodId) => {
+        const food = SHOP_ITEMS.food.find(f => f.id === foodId);
+        const pet = PET_DATABASE.find(p => p.id === state.selectedPetId);
+        const petStats = state.petData[pet.id];
+        const maxAppetite = pet.id === 999 ? 10000 : 100;
+        
+        if (petStats.appetite + food.appetite > maxAppetite) {
+            window.showNotification("Too Full! 🤢", `${pet.name} is too full to eat that! Put your phone down so they can digest.`);
+            return;
+        }
+
+        const growthRate = RARITY_GROWTH_MULT[pet.rarity];
+        const actualBoost = food.ignoresRarity ? food.sizeBoost : food.sizeBoost * growthRate;
+
+        state.inventory[foodId] -= 1;
+        petStats.foodSize = Number((petStats.foodSize + actualBoost).toFixed(2));
+        petStats.appetite += food.appetite;
+        savePrivateData();
+        renderPetDetails();
+    };
+
+    window.equipAccessory = (accId) => {
+        const accessory = SHOP_ITEMS.accessories.find(a => a.id === accId);
+        const petStats = state.petData[state.selectedPetId];
+
+        state.inventory[accId] -= 1;
+        
+        if (petStats.accessory) {
+            const oldAcc = SHOP_ITEMS.accessories.find(a => a.emoji === petStats.accessory);
+            if (oldAcc) state.inventory[oldAcc.id] += 1;
+        }
+
+        petStats.accessory = accessory.emoji;
+        petStats.accessorySize = accessory.sizeBoost;
+        savePrivateData();
+        renderPetDetails();
+    };
+
+    window.applyMutator = () => {
+        if (state.inventory['s1'] <= 0) return;
+        state.inventory['s1'] -= 1;
+
+        const roll = Math.random() * 100;
+        let newMutation = null;
+        if (roll < 50.0) newMutation = 'Gold'; 
+        else if (roll < 75.0) newMutation = 'Hungry';
+        else if (roll < 99.9) newMutation = 'Cool';
+        else newMutation = 'Admin';
+
+        state.petData[state.selectedPetId].mutation = newMutation;
+        const pet = PET_DATABASE.find(p => p.id === state.selectedPetId);
+        
+        window.showNotification("Mutation Successful! 🧬", `${pet.name} has absorbed the mutator and gained the [${newMutation}] mutation!`);
+        savePrivateData();
+        renderPetDetails();
+    };
+
+    window.handlePetThePet = () => {
+        const pet = PET_DATABASE.find(p => p.id === state.selectedPetId);
+        const stats = state.petData[state.selectedPetId];
+        
+        const heartsContainer = document.getElementById('pet-hearts-container');
+        heartsContainer.innerHTML = `
+            <span class="text-3xl heart-anim" style="animation-delay: 0ms">❤️</span>
+            <span class="text-2xl heart-anim" style="animation-delay: 100ms; transform: translateY(10px)">💖</span>
+            <span class="text-3xl heart-anim" style="animation-delay: 200ms">❤️</span>
+        `;
+        setTimeout(() => heartsContainer.innerHTML = '', 1200);
+
+        if (!stats.mutation) return;
+
+        let dropMsg = null;
+        let requireSave = false;
+        const mut = stats.mutation;
+
+        if (mut === 'Gold') {
+            if (Math.random() < 0.50) {
+                state.userCoins += 25;
+                dropMsg = "+25 Coins!";
+                updateHeaderCoins();
+                requireSave = true;
+            }
+        } else if (mut === 'Hungry') {
+            if (Math.random() < 0.35) {
+                const normalFoods = SHOP_ITEMS.food.filter(f => !f.isAdmin);
+                const food = normalFoods[Math.floor(Math.random() * normalFoods.length)];
+                state.inventory[food.id] += 1;
+                dropMsg = `+1 ${food.emoji}`;
+                requireSave = true;
+            }
+        } else if (mut === 'Cool') {
+            if (Math.random() < 0.20) {
+                const normalAcc = SHOP_ITEMS.accessories.filter(a => !a.isAdmin);
+                const acc = normalAcc[Math.floor(Math.random() * normalAcc.length)];
+                state.inventory[acc.id] += 1;
+                dropMsg = `+1 ${acc.emoji}`;
+                requireSave = true;
+            }
+        } else if (mut === 'Admin') {
+            const currentPetId = state.selectedPetId;
+            state.unlockedPets = state.unlockedPets.filter(id => id !== currentPetId);
+            if (!state.unlockedPets.includes(999)) state.unlockedPets.push(999);
+            
+            state.petData[999] = { foodSize: 1.0, appetite: 0, accessory: "🔨", accessorySize: 20.0, mutation: null };
+            state.inventory['a_admin'] += 1;
+
+            state.selectedPetId = 999;
+            window.closePetDetails();
+            window.showNotification("SYSTEM OVERRIDE ⚡", "The Admin mutation destabilized the pet!\n\nIt completely transformed into the Blue Diamond 💠 and immediately equipped the Ban Hammer 🔨!");
+            savePrivateData();
+            updateUI();
+            return;
+        }
+
+        if (dropMsg) {
+            const msgContainer = document.getElementById('pet-msg-container');
+            msgContainer.innerHTML = `<div class="bg-black/80 text-white px-3 py-1 rounded-full font-bold animate-bounce border border-indigo-400 whitespace-nowrap">${dropMsg}</div>`;
+            setTimeout(() => msgContainer.innerHTML = '', 2000);
+            if (requireSave) savePrivateData();
+            renderPetDetails(); 
+        }
+    };
+
+    // --- GIFTING SYSTEM ---
+    window.createGift = () => {
+        if (!state.inventory['g1'] || state.inventory['g1'] <= 0) {
+            window.showNotification("Missing Gift Box 🎁", "You need a Gift Box to wrap items! You can buy one in the Special section of the Shop.");
+            return;
+        }
+
+        const select = document.getElementById('gift-select').value;
+        const amount = parseInt(document.getElementById('gift-amount').value);
+
+        if (isNaN(amount) || amount <= 0) {
+            window.showNotification("Error", "Please enter a valid amount.");
+            return;
+        }
+
+        if (select === 'coins') {
+            if (state.userCoins < amount) {
+                window.showNotification("Not enough!", "You don't have that many Aether Coins.");
+                return;
+            }
+            state.userCoins -= amount;
+        } else {
+            if (state.inventory[select] < amount) {
+                window.showNotification("Not enough!", "You don't have enough of that item.");
+                return;
+            }
+            state.inventory[select] -= amount;
+        }
+
+        // Deduct the Gift Box
+        state.inventory['g1'] -= 1;
+
+        const payload = { 
+            t: select, 
+            q: amount, 
+            r: Math.random().toString(36).substring(2, 10) // Anti-collision randomizer
+        };
+        
+        const code = 'AETHER-' + btoa(JSON.stringify(payload));
+        
+        savePrivateData();
+        updateUI();
+
+        document.getElementById('generated-code-box').classList.remove('hidden');
+        document.getElementById('generated-code-text').innerText = code;
+    };
+
+    window.copyGiftCode = () => {
+        const code = document.getElementById('generated-code-text').innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            document.getElementById('copy-btn').innerText = "Copied!";
+            setTimeout(() => document.getElementById('copy-btn').innerHTML = '<i class="fa-solid fa-copy"></i> Copy', 2000);
+        }).catch(err => {
+            // Fallback for iframe/mobile issues
+            const textArea = document.createElement("textarea");
+            textArea.value = code;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("Copy");
+            textArea.remove();
+            document.getElementById('copy-btn').innerText = "Copied!";
+            setTimeout(() => document.getElementById('copy-btn').innerHTML = '<i class="fa-solid fa-copy"></i> Copy', 2000);
+        });
+    };
+
+    window.claimGift = () => {
+        const code = document.getElementById('claim-input').value.trim();
+        if (!code) return;
+
+        if (!code.startsWith('AETHER-')) {
+            window.showNotification("Invalid Code", "That doesn't look like an Aether Gift Code.");
+            return;
+        }
+
+        if (state.usedGiftCodes.includes(code)) {
+            window.showNotification("Already Claimed!", "This gift code has already been used on your device.");
+            return;
+        }
+
+        try {
+            const encodedStr = code.substring(7); // Remove 'AETHER-'
+            const payload = JSON.parse(atob(encodedStr));
+
+            let giftMsg = "";
+            if (payload.t === 'coins') {
+                state.userCoins += payload.q;
+                giftMsg = `${payload.q} Aether Coins 🪙!`;
+            } else {
+                const item = [...SHOP_ITEMS.food, ...SHOP_ITEMS.accessories, ...SHOP_ITEMS.special].find(i => i.id === payload.t);
+                if (item) {
+                    state.inventory[payload.t] += payload.q;
+                    giftMsg = `${payload.q}x ${item.name} ${item.emoji}!`;
+                } else {
+                    throw new Error("Item not found");
+                }
+            }
+
+            state.usedGiftCodes.push(code);
+            savePrivateData();
+            updateUI();
+
+            document.getElementById('claim-input').value = "";
+            window.showNotification("Gift Claimed! 🎁", `You opened the gift and received:\n\n${giftMsg}`);
+
+        } catch (e) {
+            window.showNotification("Error", "This gift code is invalid or corrupted.");
+        }
+    };
+
+
+    // --- ADMIN ACTIONS ---
+    window.adminDigestAll = () => {
+        Object.keys(state.petData).forEach(k => state.petData[k].appetite = 0);
+        window.showNotification("Admin Tools 🛠️", "All pets have instantly digested their food!");
+        savePrivateData();
+        updateUI();
+    };
+
+    window.adminGiveAllItems = () => {
+        Object.keys(state.inventory).forEach(k => { if (k !== 'a_admin') state.inventory[k] += 10; });
+        window.showNotification("Admin Tools 🛠️", "Added 10 of EVERY normal shop item to your bag!");
+        savePrivateData();
+        updateUI();
+    };
+
+    window.adminGiveDiamond = () => {
+        let msg = "";
+        if (!state.unlockedPets.includes(999)) {
+            state.unlockedPets.push(999);
+            state.petData[999] = { foodSize: 1.0, appetite: 0, accessory: null, accessorySize: 0, mutation: null };
+            msg += "Unlocked Blue Diamond! 💠\n";
+        }
+        state.inventory['a_admin'] += 1;
+        msg += "Added 1x Ban Hammer 🔨 to inventory!";
+        window.showNotification("Admin Power Granted ⚡", msg);
+        savePrivateData();
+        updateUI();
+    };
+
+    window.adminAddCustomCoins = () => {
+        const amountStr = document.getElementById('admin-custom-coins').value;
+        const amount = parseInt(amountStr);
+        if (isNaN(amount) || amount <= 0) {
+            window.showNotification("Error", "Please enter a valid positive number.");
+            return;
+        }
+        state.userCoins += amount;
+        savePrivateData();
+        updateUI();
+        window.showNotification("Admin Tools", `Successfully spawned ${amount} Aether Coins!`);
+        document.getElementById('admin-custom-coins').value = '';
+    }
+
+    window.adminUnlockAll = () => {
+        PET_DATABASE.forEach(p => {
+            if (!p.isAdmin && !state.unlockedPets.includes(p.id)) {
+                state.unlockedPets.push(p.id);
+                state.petData[p.id] = { foodSize: 1.0, appetite: 0, accessory: null, accessorySize: 0, mutation: null };
+            }
+        });
+        window.showNotification("Admin Tools", "Unlocked all normal pets!");
+        savePrivateData();
+        updateUI();
+    };
+
+    // --- RENDERING ---
+    function updateHeaderCoins() {
+        document.getElementById('header-coins').innerText = state.userCoins;
+    }
+
+    function renderNav() {
+        const tabs = [
+            { id: 'home', icon: 'fa-house', label: 'Home' },
+            { id: 'collection', icon: 'fa-paw', label: 'Pets' },
+            { id: 'shop', icon: 'fa-shop', label: 'Shop' },
+            { id: 'gift', icon: 'fa-gift', label: 'Gift' },
+            { id: 'leaderboard', icon: 'fa-medal', label: 'Rank' }
+        ];
+        if (state.isAdminVerified) tabs.push({ id: 'admin', icon: 'fa-gear', label: 'Admin' });
+
+        const html = tabs.map(tab => `
+            <button onclick="setTab('${tab.id}')" class="flex flex-col items-center p-2 w-14 rounded-lg transition-colors ${state.currentTab === tab.id ? (tab.id === 'admin' ? 'text-red-400 bg-red-500/10' : tab.id === 'shop' ? 'text-green-400 bg-green-500/10' : tab.id === 'gift' ? 'text-pink-400 bg-pink-500/10' : 'text-indigo-400 bg-indigo-500/10') : 'text-slate-400 hover:text-slate-200'}">
+                <i class="fa-solid ${tab.icon} text-lg mb-1"></i>
+                <span class="text-[9px] font-medium">${tab.label}</span>
+            </button>
+        `).join('');
+        document.getElementById('nav-buttons').innerHTML = html;
+    }
+
+    function renderDrifters() {
+        const bg = document.getElementById('bg-drifters');
+        if (!state.isRegistered) { bg.innerHTML = ''; return; }
+        
+        const html = state.unlockedPets.map(id => {
+            const pet = PET_DATABASE.find(p => p.id === id);
+            const stats = state.petData[id] || { foodSize: 1.0, accessorySize: 0, accessory: null, mutation: null };
+            const totalSizeMultiplier = stats.foodSize + stats.accessorySize;
+            
+            const top = (id * 37) % 85;
+            const left = (id * 53) % 85;
+            const duration = 20 + ((id * 7) % 20);
+            const delay = (id * 11) % 20;
+            const baseSize = 1.5 + ((id * 3) % 1.5);
+            const fSize = baseSize * Math.min(totalSizeMultiplier, 5);
+            
+            let filter = pet.id === 999 ? 'drop-shadow(0 0 20px rgba(0,191,255,0.8))' : (stats.mutation ? 'contrast(1.2) brightness(1.2)' : 'none');
+            let mutClass = stats.mutation ? getMutationStyle(stats.mutation).split(' ')[1] : '';
+
+            return `
+            <div class="absolute flex items-center justify-center drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]"
+                 style="top: ${top}%; left: ${left}%; font-size: ${fSize}rem; animation: float-space ${duration}s infinite ease-in-out -${delay}s; filter: ${filter}; transition: font-size 0.5s ease;">
+                <div class="relative ${mutClass}">
+                    ${pet.emoji}
+                    ${stats.accessory ? `<span class="absolute -top-1/4 -right-1/4 text-[0.6em] drop-shadow-lg z-10 animate-bounce">${stats.accessory}</span>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+        bg.innerHTML = html;
+    }
+
+    function renderPetDetails() {
+        if (!state.selectedPetId) return;
+        const pet = PET_DATABASE.find(p => p.id === state.selectedPetId);
+        const stats = state.petData[pet.id];
+        const isDiamond = pet.id === 999;
+        const totalSize = (stats.foodSize + stats.accessorySize).toFixed(2);
+        const growthMult = RARITY_GROWTH_MULT[pet.rarity];
+        const maxApp = isDiamond ? 10000 : 100;
+        const appPct = Math.min(100, (stats.appetite / maxApp) * 100);
+
+        const eTrait = getPetElementAndTrait(pet.id);
+        const styleClasses = stats.mutation ? getMutationStyle(stats.mutation) : 'border-indigo-500';
+        const txtColor = isDiamond ? 'text-blue-400' : (stats.mutation ? getMutationText(stats.mutation) : 'text-white');
+        
+        const box = document.getElementById('pet-details-box');
+        box.className = `bg-slate-800 border-2 ${styleClasses.split(' ')[2] || 'border-indigo-500'} rounded-3xl p-6 pt-10 max-w-sm w-full shadow-2xl mt-8 mb-8 relative max-h-[90vh] overflow-y-auto`;
+
+        let bagHtml = '';
+        
+        SHOP_ITEMS.special.forEach(s => {
+            // Exclude Gift Boxes from feeding/using directly on pets
+            if (s.id !== 'g1' && state.inventory[s.id] > 0) {
+                bagHtml += `<button onclick="applyMutator()" class="bg-purple-900/50 border border-purple-500 hover:bg-purple-800/50 p-2 rounded-lg min-w-[60px] flex flex-col items-center flex-shrink-0 active:scale-95 transition-transform"><span class="text-2xl">${s.emoji}</span><span class="text-[10px] font-bold mt-1 text-purple-300">x${state.inventory[s.id]}</span><span class="text-[9px] text-purple-400 font-bold">Use</span></button>`;
+            }
+        });
+
+        SHOP_ITEMS.food.forEach(f => {
+            if (state.inventory[f.id] > 0) {
+                const boost = f.ignoresRarity ? f.sizeBoost.toFixed(2) : (f.sizeBoost * growthMult).toFixed(2);
+                const color = f.ignoresRarity ? 'text-yellow-400 font-bold' : 'text-green-400';
+                bagHtml += `<button onclick="feedPet('${f.id}')" class="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg min-w-[60px] flex flex-col items-center flex-shrink-0 active:scale-95 transition-transform"><span class="text-2xl">${f.emoji}</span><span class="text-[10px] font-bold mt-1 text-slate-300">x${state.inventory[f.id]}</span><span class="text-[9px] ${color}">+${boost}x</span></button>`;
+            }
+        });
+
+        SHOP_ITEMS.accessories.forEach(a => {
+            if (state.inventory[a.id] > 0) {
+                const bg = a.isAdmin ? 'bg-blue-900/80 border-blue-400' : 'bg-indigo-900/50 border-indigo-500/50';
+                bagHtml += `<button onclick="equipAccessory('${a.id}')" class="${bg} border hover:bg-indigo-800/50 p-2 rounded-lg min-w-[60px] flex flex-col items-center flex-shrink-0 active:scale-95 transition-transform"><span class="text-2xl">${a.emoji}</span><span class="text-[10px] font-bold mt-1 text-indigo-300">Equip</span></button>`;
+            }
+        });
+
+        if(bagHtml === '') bagHtml = '<div class="text-sm text-slate-500 text-center w-full py-2">Your bag is empty. Check Shop!</div>';
+
+        box.innerHTML = `
+            <div id="pet-hearts-container" class="absolute top-10 left-1/2 -translate-x-1/2 z-20 pointer-events-none flex gap-2"></div>
+            <div id="pet-msg-container" class="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none"></div>
+
+            <div class="text-center mb-6 w-full ${isDiamond ? 'drop-shadow-[0_0_30px_rgba(0,191,255,1)]' : (stats.mutation ? getMutationStyle(stats.mutation).split(' ')[1] : 'drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]')}">
+                <div class="relative inline-block text-7xl">
+                    ${pet.emoji}
+                    ${stats.accessory ? `<span class="absolute -top-6 -right-6 text-4xl drop-shadow-md z-10 animate-bounce">${stats.accessory}</span>` : ''}
+                </div>
+            </div>
+            
+            <h3 class="text-2xl font-bold text-center mb-1 ${txtColor}">${pet.name}</h3>
+            
+            <div class="text-center mb-4 flex justify-center gap-2">
+                <span class="text-sm px-3 py-1 rounded-full font-bold inline-block ${isDiamond ? 'bg-blue-900 text-blue-300 border border-blue-500' : 'bg-slate-700 text-slate-200'}">${pet.rarity}</span>
+                ${stats.mutation ? `<span class="text-sm px-3 py-1 rounded-full font-bold inline-block ${styleClasses}">${stats.mutation} Mutated</span>` : ''}
+            </div>
+            
+            <button onclick="handlePetThePet()" class="w-full mb-4 bg-pink-600/20 hover:bg-pink-600/40 border border-pink-500 text-pink-300 font-bold py-2 rounded-xl flex justify-center items-center gap-2 transition-transform active:scale-95">
+                <i class="fa-solid fa-hand-holding-heart"></i> Pet Me!
+            </button>
+
+            <div class="bg-slate-900/50 rounded-xl p-4 space-y-3 mb-4">
+                <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                    <div>
+                        <div class="text-slate-400 font-medium">Size Multiplier</div>
+                        <div class="text-[10px] text-indigo-300">Growth Rate: ${growthMult}x</div>
+                    </div>
+                    <span class="font-mono text-xl font-bold text-indigo-400">x${totalSize}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700 pb-2">
+                    <span class="text-slate-400 font-medium">Element</span>
+                    <span class="font-bold text-slate-200">${eTrait.element}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700 pb-2">
+                    <span class="text-slate-400 font-medium">Personality</span>
+                    <span class="font-bold text-slate-200">${eTrait.trait}</span>
+                </div>
+                <div class="pt-1">
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-slate-400">Appetite (Fullness)</span>
+                        <span class="${stats.appetite >= maxApp ? 'text-red-400 font-bold' : 'text-slate-300'}">${stats.appetite} / ${maxApp}</span>
+                    </div>
+                    <div class="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                        <div class="h-full transition-all duration-300 ${stats.appetite >= maxApp ? 'bg-red-500' : 'bg-green-500'}" style="width: ${appPct}%"></div>
+                    </div>
+                    <p class="text-[10px] mt-1 text-center ${isDiamond ? 'text-blue-400 font-bold' : 'text-slate-500'}">${isDiamond ? 'Infinite Developer Stomach!' : 'Put phone down to digest food!'}</p>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <h4 class="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wider">Your Bag</h4>
+                <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    ${bagHtml}
+                </div>
+            </div>
+            
+            <button onclick="closePetDetails()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors">Close Info</button>
+        `;
+    }
+
+    function updateUI() {
+        if (!state.isRegistered) return;
+        updateHeaderCoins();
+        renderNav();
+        renderDrifters();
+        
+        const main = document.getElementById('main-content');
+        
+        if (state.currentTab === 'home') {
+            main.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full gap-8 py-10 fade-in">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-2xl font-bold">Welcome, ${state.playerName}!</h2>
+                        <p class="text-slate-400">Time to give your screen a break.</p>
+                    </div>
+                    <div class="relative w-64 h-64 rounded-full flex flex-col items-center justify-center border-4 border-indigo-500 bg-indigo-900/20 shadow-[0_0_50px_-12px_rgba(99,102,241,0.5)]">
+                        <i class="fa-regular fa-clock text-4xl mb-2 text-indigo-400"></i>
+                        <span class="text-4xl font-mono font-bold tracking-wider">${formatTime(state.totalOfflineSeconds)}</span>
+                        <span class="text-sm text-indigo-300 mt-2 font-medium">Total Time Saved</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-4 text-center mt-4 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+                        <p class="text-slate-200 text-lg">The tracker is <span class="text-green-400 font-bold">Active</span>!</p>
+                        <p class="text-slate-400 text-sm">
+                            <strong>Honesty Rule:</strong> Lock your phone to earn coins, digest food, and <span class="text-indigo-300 font-bold">find random loot drops!</span>
+                        </p>
+                    </div>
+                </div>`;
+        } 
+        else if (state.currentTab === 'shop') {
+            let shopHtml = `<div><h2 class="text-2xl font-bold flex items-center gap-2"><i class="fa-solid fa-shop text-green-400"></i> Aether Shop</h2><p class="text-slate-400">Buy treats and gear for your pets.</p></div>`;
+            
+            shopHtml += `<div class="space-y-3 mt-4"><h3 class="font-bold text-purple-300 border-b border-purple-900/50 pb-2">Special Items</h3>`;
+            SHOP_ITEMS.special.forEach(i => {
+                shopHtml += `<div class="bg-purple-900/20 p-4 rounded-xl border border-purple-500/50 flex justify-between items-center"><div class="flex items-center gap-3"><div class="text-3xl">${i.emoji}</div><div><div class="font-bold text-white">${i.name}</div><div class="text-[11px] text-purple-300 max-w-[180px] leading-tight mt-1">${i.desc}</div></div></div><button onclick="buyItem('${i.id}')" class="bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-600 px-3 py-2 rounded-lg font-bold flex items-center gap-1 shrink-0">${i.cost} <i class="fa-solid fa-coins text-[10px]"></i></button></div>`;
+            });
+            shopHtml += `</div>`;
+
+            shopHtml += `<div class="space-y-3 mt-4"><h3 class="font-bold text-slate-300 border-b border-slate-700 pb-2">Pet Food (Boosts Size)</h3>`;
+            SHOP_ITEMS.food.filter(i => !i.isAdmin).forEach(i => {
+                let badge = i.ignoresRarity ? `<div class="absolute top-0 right-0 bg-yellow-500 text-black text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">SPECIAL</div>` : '';
+                shopHtml += `<div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center relative overflow-hidden">${badge}<div class="flex items-center gap-3"><div class="text-3xl">${i.emoji}</div><div><div class="font-bold text-white">${i.name}</div><div class="text-xs text-slate-400 mt-1">${i.desc} | +${i.appetite} Fullness</div></div></div><button onclick="buyItem('${i.id}')" class="bg-green-600/20 hover:bg-green-600/40 text-green-400 border border-green-600 px-3 py-2 rounded-lg font-bold flex items-center gap-1 z-10 shrink-0">${i.cost} <i class="fa-solid fa-coins text-[10px]"></i></button></div>`;
+            });
+            shopHtml += `</div>`;
+
+            shopHtml += `<div class="space-y-3 mt-4"><h3 class="font-bold text-slate-300 border-b border-slate-700 pb-2">Accessories</h3>`;
+            SHOP_ITEMS.accessories.filter(i => !i.isAdmin).forEach(i => {
+                shopHtml += `<div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center"><div class="flex items-center gap-3"><div class="text-3xl">${i.emoji}</div><div><div class="font-bold text-indigo-300">${i.name}</div><div class="text-xs text-slate-400 mt-1">${i.desc}</div></div></div><button onclick="buyItem('${i.id}')" class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 border border-indigo-600 px-3 py-2 rounded-lg font-bold flex items-center gap-1 shrink-0">${i.cost} <i class="fa-solid fa-coins text-[10px]"></i></button></div>`;
+            });
+            shopHtml += `</div>`;
+
+            main.innerHTML = `<div class="space-y-6 fade-in pb-6">${shopHtml}</div>`;
+        }
+        else if (state.currentTab === 'collection') {
+            let colHtml = `<div class="flex justify-between items-end mb-6"><div><h2 class="text-2xl font-bold">Aether Pets</h2><p class="text-slate-400">(${state.unlockedPets.length}/${PET_DATABASE.length}) Discovered</p></div><button onclick="summonPet()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg active:scale-95"><i class="fa-solid fa-wand-magic-sparkles text-sm"></i> Summon (${state.summonCost} <i class="fa-solid fa-coins text-[10px]"></i>)</button></div>`;
+            
+            colHtml += `<div class="grid grid-cols-2 gap-4">`;
+            PET_DATABASE.forEach(pet => {
+                const isUnl = state.unlockedPets.includes(pet.id);
+                if (pet.isAdmin && !isUnl) return;
+                
+                const pData = state.petData[pet.id];
+                const isDia = pet.id === 999;
+
+                let bgClasses = 'bg-slate-800/50 border-slate-700 opacity-50 cursor-not-allowed';
+                let iconFilter = 'filter drop-shadow-md';
+                let nameClass = '';
+                let rarityClass = 'bg-yellow-900 text-yellow-300';
+                
+                if (pet.rarity === 'Common') rarityClass = 'bg-slate-600 text-slate-200';
+                else if (pet.rarity === 'Uncommon') rarityClass = 'bg-green-900 text-green-300';
+                else if (pet.rarity === 'Rare') rarityClass = 'bg-blue-900 text-blue-300';
+                else if (pet.rarity === 'Epic') rarityClass = 'bg-purple-900 text-purple-300';
+                else if (pet.rarity === 'Admin') rarityClass = 'bg-cyan-900 text-cyan-300 font-bold border border-cyan-500';
+
+                if (isUnl) {
+                    if (isDia) {
+                        bgClasses = 'bg-blue-900/30 border-blue-500 shadow-[0_0_15px_rgba(0,191,255,0.3)] hover:scale-105 cursor-pointer';
+                        iconFilter = 'drop-shadow-[0_0_15px_rgba(0,191,255,0.8)]';
+                        nameClass = 'text-blue-300';
+                    } else if (pData?.mutation) {
+                        bgClasses = getMutationStyle(pData.mutation).split(' ')[2] + ' hover:scale-105 cursor-pointer border';
+                        iconFilter = getMutationStyle(pData.mutation).split(' ')[1];
+                        nameClass = getMutationText(pData.mutation);
+                    } else {
+                        bgClasses = 'bg-slate-800 border-indigo-500/50 shadow-md cursor-pointer hover:scale-105 hover:bg-slate-700 border';
+                    }
+                }
+
+                colHtml += `
+                <div ${isUnl ? `onclick="openPetDetails(${pet.id})"` : ''} class="p-4 rounded-xl flex flex-col items-center justify-center text-center gap-2 transition-all ${bgClasses}">
+                    <div class="text-4xl relative ${iconFilter}">
+                        ${isUnl ? pet.emoji : '❓'}
+                        ${(isUnl && pData?.accessory) ? `<span class="absolute -top-3 -right-3 text-2xl drop-shadow-md">${pData.accessory}</span>` : ''}
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm ${nameClass}">${isUnl ? pet.name : 'Unknown'}</h3>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full mt-1 inline-block ${rarityClass}">
+                            ${pet.rarity} ${isUnl && pData ? `| x${(pData.foodSize + pData.accessorySize).toFixed(1)}` : ''}
+                        </span>
+                    </div>
+                </div>`;
+            });
+            colHtml += `</div>`;
+            main.innerHTML = `<div class="fade-in">${colHtml}</div>`;
+        }
+        else if (state.currentTab === 'gift') {
+            let optionsHtml = `<option value="coins">🪙 Aether Coins</option>`;
+            [...SHOP_ITEMS.food, ...SHOP_ITEMS.accessories, ...SHOP_ITEMS.special].forEach(item => {
+                // Don't allow wrapping admin items or empty inventory items
+                if (state.inventory[item.id] > 0 && !item.isAdmin) {
+                    optionsHtml += `<option value="${item.id}">${item.emoji} ${item.name} (Own: ${state.inventory[item.id]})</option>`;
+                }
+            });
+
+            main.innerHTML = `
+                <div class="space-y-6 fade-in pb-10">
+                    <div>
+                        <h2 class="text-2xl font-bold flex items-center gap-2 text-pink-400"><i class="fa-solid fa-gift"></i> Global Gifting</h2>
+                        <p class="text-slate-400 text-sm mt-1">Package items into text codes to send to your friends!</p>
+                    </div>
+
+                    <!-- Claim Gift -->
+                    <div class="bg-slate-800 p-6 rounded-2xl border-2 border-slate-700 shadow-lg relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-pink-500/10 rounded-bl-full -z-10"></div>
+                        <h3 class="text-xl font-bold mb-4">Open a Gift</h3>
+                        <div class="flex gap-2">
+                            <input type="text" id="claim-input" placeholder="Paste AETHER- code here..." class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-white font-mono text-sm focus:outline-none focus:border-pink-500">
+                            <button onclick="claimGift()" class="bg-pink-600 hover:bg-pink-500 text-white font-bold px-4 py-2 rounded-xl transition-colors">Claim</button>
+                        </div>
+                    </div>
+
+                    <!-- Create Gift -->
+                    <div class="bg-slate-800 p-6 rounded-2xl border-2 border-slate-700 shadow-lg relative">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold">Wrap a Gift</h3>
+                            <span class="text-xs px-2 py-1 rounded-full font-bold bg-slate-900 border ${state.inventory['g1'] > 0 ? 'text-green-400 border-green-500/50' : 'text-red-400 border-red-500/50'}">
+                                🎁 Boxes Owned: ${state.inventory['g1'] || 0}
+                            </span>
+                        </div>
+                        
+                        <label class="block text-slate-400 text-sm font-bold mb-2">Select Item to Gift</label>
+                        <select id="gift-select" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500 mb-4">
+                            ${optionsHtml}
+                        </select>
+
+                        <label class="block text-slate-400 text-sm font-bold mb-2">Amount</label>
+                        <input type="number" id="gift-amount" value="1" min="1" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-pink-500 mb-6">
+
+                        <button onclick="createGift()" class="w-full ${state.inventory['g1'] > 0 ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 text-slate-400 cursor-not-allowed'} text-white font-bold py-3 rounded-xl shadow-lg transition-colors active:scale-95">
+                            Use 1 Box & Generate Code
+                        </button>
+
+                        <div id="generated-code-box" class="mt-6 hidden bg-slate-900 border border-pink-500/50 rounded-xl p-4 text-center animate-pulse">
+                            <p class="text-xs text-pink-300 font-bold mb-2">YOUR GIFT CODE IS READY:</p>
+                            <p id="generated-code-text" class="font-mono text-sm text-white break-all bg-black/50 p-2 rounded mb-3 select-all"></p>
+                            <button id="copy-btn" onclick="copyGiftCode()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-bold"><i class="fa-solid fa-copy"></i> Copy</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        else if (state.currentTab === 'leaderboard') {
+            let html = `<div><h2 class="text-2xl font-bold flex items-center gap-2 mb-2"><i class="fa-solid fa-medal text-yellow-400"></i> Personal Best</h2><p class="text-slate-400 text-sm mb-6">Your longest times spent away from the screen!</p></div>`;
+            
+            if (!state.history || state.history.length === 0) {
+                html += `<div class="text-center p-8 bg-slate-800 rounded-xl border border-slate-700"><p class="text-slate-400">No sessions recorded yet. Put your phone down to start saving time!</p></div>`;
+            } else {
+                html += `<div class="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">`;
+                state.history.forEach((e, idx) => {
+                    const rankColor = idx === 0 ? 'text-yellow-400 text-xl' : idx === 1 ? 'text-slate-300 text-lg' : idx === 2 ? 'text-amber-600 text-lg' : 'text-slate-500';
+                    html += `
+                    <div class="flex items-center justify-between p-4 border-b border-slate-700 last:border-0">
+                        <div class="flex items-center gap-4">
+                            <span class="font-bold w-6 text-center ${rankColor}">#${idx + 1}</span>
+                            <div><div class="font-bold text-slate-200">${e.date}</div></div>
+                        </div>
+                        <div class="font-mono text-indigo-300 font-bold bg-slate-900 px-3 py-1 rounded-md">${formatTime(e.time)}</div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            main.innerHTML = `<div class="space-y-6 fade-in">${html}</div>`;
+        }
+        else if (state.currentTab === 'admin' && state.isAdminVerified) {
+            main.innerHTML = `
+            <div class="space-y-6 fade-in pb-10">
+                <div>
+                    <h2 class="text-2xl font-bold flex items-center gap-2 text-red-400"><i class="fa-solid fa-gear text-red-400"></i> Developer Panel</h2>
+                    <p class="text-slate-400 text-sm mt-1">Tools to test game balancing quickly.</p>
+                </div>
+                <div class="grid gap-4">
+                    <button onclick="adminGiveDiamond()" class="bg-blue-900/60 border-2 border-blue-500 p-4 rounded-xl flex justify-between items-center hover:bg-blue-800 transition-colors shadow-[0_0_20px_rgba(0,191,255,0.3)]"><span class="font-bold text-blue-200">Grant Admin Pet & Gear</span><i class="fa-solid fa-crown text-blue-400"></i></button>
+                    
+                    <div class="bg-slate-800 border border-slate-600 p-4 rounded-xl flex flex-col gap-3 hover:bg-slate-700 transition-colors">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold">Spawn Custom Coins</span>
+                            <i class="fa-solid fa-coins text-yellow-400"></i>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="number" id="admin-custom-coins" placeholder="Amount..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-red-500">
+                            <button onclick="adminAddCustomCoins()" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg font-bold text-white transition-colors">Add</button>
+                        </div>
+                    </div>
+
+                    <button onclick="adminGiveAllItems()" class="bg-slate-800 border border-slate-600 p-4 rounded-xl flex justify-between items-center hover:bg-slate-700"><span class="font-bold">Give 10x All Normal Items</span><i class="fa-solid fa-bag-shopping text-green-400"></i></button>
+                    <button onclick="adminDigestAll()" class="bg-slate-800 border border-slate-600 p-4 rounded-xl flex justify-between items-center hover:bg-slate-700"><span class="font-bold">Digest All Food (Reset Appetite)</span><i class="fa-solid fa-paw text-orange-400"></i></button>
+                    <button onclick="adminUnlockAll()" class="bg-slate-800 border border-slate-600 p-4 rounded-xl flex justify-between items-center hover:bg-slate-700"><span class="font-bold">Unlock All Normal Pets</span><i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i></button>
+                </div>
+            </div>`;
+        }
+    }
+
+</script>
+</body>
+</html>
